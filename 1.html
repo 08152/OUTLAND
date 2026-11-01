@@ -1,0 +1,265 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OUTLAND – Verbindung</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    min-height: 100vh;
+    background: #101a28;
+    color: white;
+    font-family: Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.container {
+    width: 90%;
+    max-width: 500px;
+}
+
+h1 {
+    font-size: 55px;
+    font-weight: 1000;
+    letter-spacing: 7px;
+    margin-bottom: 15px;
+}
+
+.subtitle {
+    color: #8ca6c0;
+    font-size: 12px;
+    letter-spacing: 4px;
+    margin-bottom: 65px;
+}
+
+.status {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.detail {
+    color: #8ca6c0;
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 40px;
+}
+
+.progress-background {
+    width: 100%;
+    height: 7px;
+    background: #29394d;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 30px;
+}
+
+.progress {
+    width: 0%;
+    height: 100%;
+    background: #4bbaff;
+    transition: width .5s;
+}
+
+.percent {
+    color: #8ca6c0;
+    font-size: 13px;
+    margin-top: 12px;
+}
+
+.dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    background: #4bbaff;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    50% { opacity: .25; }
+}
+
+button {
+    margin-top: 35px;
+    padding: 14px 25px;
+    background: transparent;
+    border: 1px solid #4b6885;
+    color: white;
+    cursor: pointer;
+    display: none;
+}
+
+button:hover {
+    background: #243c56;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>OUTLAND</h1>
+    <div class="subtitle">SERVERVERBINDUNG</div>
+
+    <div class="status">
+        <span class="dot" id="dot"></span>
+        <span id="status">Verbinde mit Server...</span>
+    </div>
+
+    <div class="detail" id="detail">
+        Der OUTLAND-Server wird kontaktiert.
+    </div>
+
+    <div class="progress-background">
+        <div class="progress" id="progress"></div>
+    </div>
+
+    <div class="percent" id="percent">10%</div>
+
+    <button id="retry" onclick="startConnection()">
+        ERNEUT VERSUCHEN
+    </button>
+
+</div>
+
+<script>
+
+// DEINE RENDER-ADRESSE:
+const SERVER_URL = "https://DEIN-SERVER.onrender.com";
+
+// Spiel läuft auf derselben Render-Adresse:
+const GAME_URL = SERVER_URL;
+
+const statusElement = document.getElementById("status");
+const detailElement = document.getElementById("detail");
+const progressElement = document.getElementById("progress");
+const percentElement = document.getElementById("percent");
+const dotElement = document.getElementById("dot");
+const retryButton = document.getElementById("retry");
+
+let running = false;
+
+function update(title, detail, amount, error = false) {
+    statusElement.textContent = title;
+    detailElement.textContent = detail;
+    progressElement.style.width = amount + "%";
+    percentElement.textContent = amount + "%";
+
+    dotElement.style.background = error ? "#ff5555" : "#4bbaff";
+    dotElement.style.animation = error ? "none" : "pulse 1s infinite";
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function checkServer() {
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
+    try {
+        const response = await fetch(SERVER_URL + "/health", {
+            cache: "no-store",
+            signal: controller.signal
+        });
+
+        if (!response.ok) return false;
+
+        const data = await response.json();
+        return data.status === "ok";
+
+    } catch (error) {
+        return false;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+async function startConnection() {
+
+    if (running) return;
+
+    running = true;
+    retryButton.style.display = "none";
+
+    const startTime = Date.now();
+    let attempts = 0;
+
+    while (Date.now() - startTime < 300000) {
+
+        attempts++;
+
+        if (attempts === 1) {
+            update(
+                "Server wird hochgefahren...",
+                "Render startet den OUTLAND-Server.",
+                25
+            );
+        } else if (attempts < 4) {
+            update(
+                "Server lädt...",
+                "Warte auf die Antwort des Servers.",
+                45
+            );
+        } else {
+            update(
+                "Server wird vorbereitet...",
+                "Prüfe, ob OUTLAND spielbereit ist.",
+                70
+            );
+        }
+
+        const ready = await checkServer();
+
+        if (ready) {
+
+            update(
+                "Server erfolgreich gestartet!",
+                "Verbindung hergestellt. OUTLAND wird geöffnet.",
+                100
+            );
+
+            dotElement.style.background = "#40e69a";
+
+            await sleep(1200);
+
+            location.href = GAME_URL;
+            return;
+        }
+
+        await sleep(5000);
+    }
+
+    running = false;
+
+    update(
+        "Verbindung fehlgeschlagen",
+        "Der Server antwortet nicht. Bitte versuche es erneut.",
+        0,
+        true
+    );
+
+    retryButton.style.display = "inline-block";
+}
+
+startConnection();
+
+</script>
+
+</body>
+</html>
